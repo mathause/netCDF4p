@@ -1,19 +1,16 @@
 from setuptools import setup
 
-setup(name='mcache',
+setup(name='netCDF4p',
     version='0.9',
-    description='Convinience Wrapper for joblib Memory cache',
+    description='Addition to netCDF4 to select by dimension',
     url='',
     author='Mathias Hauser',
     author_email='mathias.hauser@env.ethz.ch',
     license='MIT',
-    packages=['mcache'],
+    packages=['netCDF4p'],
     install_requires=[
-        'sys',
-		'errno',
-		'os',
-		'inspect',
-		'warnings'
+        'netCDF4',
+		'numpy',
 		],
     zip_safe=False)
 

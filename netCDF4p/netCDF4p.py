@@ -36,9 +36,27 @@ def _select(self, item):
     if start > stop:
         start, stop = stop, start
     # python slice notation: stop is the first that is NOT selected
-    return slice(start, stop + 1, step)
+    sel = slice(start, stop + 1, step)
 
-        
+    vals = data[sel]
+    verbose(self.name, item, vals[0], stop_val=vals[-1])
+    return sel 
+
+# ---------------------------------------------------------------------------
+
+def verbose(name, item, start_val, stop_val):
+
+    string = "Select '{0}': ".format(name)
+
+    if len(item) == 1:
+        msg = "{0}{1} selects: {2:5.3f}".format(string, item[0], start_val)
+    elif len(item) == 2:
+        msg = "{0}{1}...{2} selects: {3:5.3f}...{4:5.3f}".format(string,
+         item[0], item[1], start_val, stop_val)
+
+    print(msg)
+
+# ============================================================================
 
 class Select(object):
     """docstring for select"""
@@ -48,33 +66,36 @@ class Select(object):
         self.name = name
         self.dimension = dimension
         self.variable = variable
+
+        # se
         self.selections = dict()
 
     
     def __getitem__(self, item):
+        # check if this particular case was already selected
         sel = self.selections.get(item, None)
 
         if sel is not None:
             return sel
         else:
-            print('Selecting: {0}'.format(self.name))
-
+            # get the new selection
             sel = _select(self, item)
 
+            # assign the new selection to the dict
             self.selections[item] = sel
             return sel
 
 
 
+
+
+
+
+    # selections can not be assigned
     def __setitem__(self, item, value):
-        raise RuntimeError("Values can not be set manually")
+        raise RuntimeError("Coordinate Subscripts can not be set manually")
 
-
-
-
-
-
-
+# ============================================================================
 
 def wherenearest(grid, pos):
     """return index nearest to pos"""
@@ -84,10 +105,12 @@ def wherenearest(grid, pos):
 
 
 
-
+# ============================================================================
+# subclass the netCDF4.Dataset class in order to (1) use the new Variable
+# class and (2) the Select class
 
 class Dataset(netCDF4.Dataset):
-    """docstring for Dataset"""
+    """subclass of netCDF4.Dataset that uses the """
 
     select = {}
     
@@ -99,89 +122,116 @@ class Dataset(netCDF4.Dataset):
             raise RuntimeError("No such file or directory '%s'" % arg[0])
 
 
-        for v in self.variables.keys():
-            ncv = self.variables[v]
-            # unfortunately we have to subclass "variables" new in order to use the new version
-            self.variables[v] = Variable(ncv.group(), ncv._name, ncv.datatype, ncv.dimensions, id=ncv._varid)
+        for var in self.variables.keys():
+            ncv = self.variables[var]
+            # unfortunately we have to reassign "variables" in order to 
+            # use the new version
+            self.variables[var] = Variable(ncv.group(),
+                                           ncv._name, 
+                                           ncv.datatype, 
+                                           ncv.dimensions, 
+                                           id=ncv._varid)
 
 
-            self.select[v] = Select(v, self.dimensions.get(v, [None,]), self.variables.get(v, [None,]))
+            # add the new Select class to the Dataset
+            self.select[var] = Select(var,
+                                      self.dimensions.get(var, [None,]),
+                                      self.variables.get(var, [None,]))
 
 
+# ============================================================================
+# subclass netCDF4.Variable to alter __getitem__
 
+def __expand_elem__(elem, ndim):
+    """parse the slice input"""
+
+    # PARSE ELEM
+    # we need to be sure of the position of all elem
+
+    # (1) only 1 elem is given 
+
+    if type(elem) is list or isinstance(elem, set):
+        elem = (elem,)
+
+    if not np.iterable(elem):
+        elem = (elem, )
+
+    # (2) make sure there are not too many dimensions in slice.
+    if len(elem) > ndim:
+        raise ValueError("slicing expression exceeds the number of dimensions \
+            of the variable")
+
+    # (2) if less elements are given then there are dimensions:
+    #     fill them with Ellipsis
+
+    missing_dim = ndim - len(elem)
+
+    if missing_dim > 0:
+        # the first occurence of Ellipsis gets expanded
+        if Ellipsis in elem:
+            # first occurence of Ellipsis
+            i = next(el[0] for el in enumerate(elem) if el[1] == Ellipsis)
+            # expand
+            elem = elem[:i+1] + (Ellipsis, ) * missing_dim + elem[i+1:]
+        else:
+            elem = elem + (Ellipsis, ) * missing_dim
+
+
+    return elem
+
+# ----------------------------------------------------------------------------
+
+def __parse_el__(self, elem):
+    """find slices that have to be selected"""
+
+    sel_elem = tuple()
+
+
+    for i, el in enumerate(elem):
+
+        # coordinate subsetting happens for sets
+        if isinstance(el, set):
+            # convert to tuple (must be hashable)
+            el = tuple(el)
+
+            if len(el) != 2 and len(el) != 1:
+                raise IndexError("Length of coordinate subsetting must be 1 or 2")
+
+            # name of the dimension
+            dim = self.dimensions[i]
+
+            # need "Select" of the parent of the Variable
+            # get the slice for this specific selection
+            sel_elem += (self.group().select[dim][el],)
+        else:
+            sel_elem += (el, )
+
+    return sel_elem
+
+# ----------------------------------------------------------------------------
 
 
 class Variable(netCDF4.Variable):
-    """docstring for Variable"""
+    """subclass netCDF4 to alter __getitem__"""
+
     def __init__(self, *arg, **kwargs):
         super(Variable, self).__init__(*arg, **kwargs)
 
-    # use *elem to ensure that it is a tuple
+
     def __getitem__(self, elem, **kwargs):
 
+        # add Ellipsis if elem has less members than ndim
+        elem = __expand_elem__(elem, self.ndim)
 
-        # parse elem: fill missing dims with Ellipsis
+        # find slices that have to be selected and select
+        sel_elem = __parse_el__(self, elem)
 
-
-
-        if type(elem) is list:
-            elem = (elem,)
-
-        try: # could be only one entry of int, Ellipsis or slice
-            missing_dim = self.ndim - len(elem)
-        except TypeError:
-            elem = (elem, )
-            missing_dim = self.ndim - len(elem)
-
-        if missing_dim > 0:
-            if Ellipsis in elem:
-                # find index of first occurence of Ellipsis
-                i = next(el[0] for el in enumerate(elem) if el[1] == Ellipsis)
-                # the first Ellipsis gets expanded
-                elem = elem[:i+1] + (Ellipsis, ) * missing_dim + elem[i+1:]
-            else:
-                elem = elem + (Ellipsis, ) * missing_dim
-
-
-            print("ELEM", elem)
-            sel_elem = tuple()
-            for i, el in enumerate(elem):
-
-                if type(el) is set:
-
-                    dim = self.dimensions[i]
-                    print(dim)
-                    sel_elem += (self.group().select[dim][el],)
-
-                else:
-                    sel_elem += (el, )
-
-
-
-        print(sel_elem)
-
-        print(elem)
-        print(kwargs)
-        print(self.shape)
-        print(self.ndim)
-        print(self._name)
-        print(self.dimensions)
-        
-        
-
-        #print(self._grp.get_selection('lat', {1, 5}))
-
-
-
-        data = super(Variable, self).__getitem__(elem)
-
-        print(data.shape)
-        print('after')
+        data = super(Variable, self).__getitem__(sel_elem)
 
         return data
 
 
-
+# ============================================================================
 
 
 
@@ -192,8 +242,9 @@ fN = '/net/exo/landclim/mathause/cesm_data/f.e121.FC5.f19_g16.CTRL_2000-io384.00
 
 ncf = Dataset(fN)
 
+#ncf = ncp.Dataset(fN)
 
-# print(ncf.variables['SOILLIQ'][Ellipsis, 1:3, {'lat' : (1, 3)}].shape)
+#print(ncf.variables['SOILLIQ'][Ellipsis, 1:3, {'lat' : (1, 3)}].shape)
 
 
 print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
@@ -213,3 +264,27 @@ print(ncf.variables['SOILLIQ'][0].shape)
 print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 print(ncf.variables['SOILLIQ'][Ellipsis].shape)
 print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+print(ncf.variables['SOILLIQ'][0, {0, 0.1}].shape)
+print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+print(ncf.variables['SOILLIQ'][0, {0, 0.1}, {0, 30}, ...].shape)
+print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+print(ncf.variables['SOILLIQ'][{0}].shape)
+print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+
+
+
+
+fN = '/net/exo/landclim/mathause/cesm_data/f.e121.FC5.f19_g16.CTRL_2000-io384.001/lnd/hist/f.e121.FC5.f19_g16.CTRL_2000-io384.001.clm2.h0.0005-01.nc'
+ncf = Dataset(fN)
+
+print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+print(ncf.variables['SOILLIQ'][0, {0, 0.1}, {0, 30}, ...].shape)
+print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+
+
+
+
+# print(ncf.variables['SOILLIQ'][{'lat' : (3, 15)}].shape)
+# print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+
+
