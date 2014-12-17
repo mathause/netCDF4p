@@ -13,9 +13,9 @@ import numpy as np
 
 # SUBCLASS Dataset and Variable
 
-# this is ugly, however we need to change the behaviour of Variable
 
 
+# ---------------------------------------------------------------------------
         
 def _select(self, item):
 
@@ -45,7 +45,7 @@ def _select(self, item):
 # ---------------------------------------------------------------------------
 
 def verbose(name, item, start_val, stop_val):
-
+    """print item and resulting selection"""
     string = "Select '{0}': ".format(name)
 
     if len(item) == 1:
@@ -84,12 +84,6 @@ class Select(object):
             # assign the new selection to the dict
             self.selections[item] = sel
             return sel
-
-
-
-
-
-
 
     # selections can not be assigned
     def __setitem__(self, item, value):
@@ -140,6 +134,56 @@ class Dataset(netCDF4.Dataset):
 
 
 # ============================================================================
+# subclass the netCDF4.MFDataset class in order to (1) use the new Variable
+# class and (2) the Select class
+
+class MFDataset(netCDF4.MFDataset):
+    """subclass of netCDF4.Dataset that uses the """
+
+    select = {}
+    
+    def __init__(self, *arg, **kwargs):
+
+        try:
+            super(MFDataset, self).__init__(*arg, **kwargs)
+        except RuntimeError:
+            raise RuntimeError("No such file or directory '%s'" % arg[0])
+
+
+        for var in self.variables.keys():
+            ncv = self.variables[var]
+            # unfortunately we have to reassign "variables" in order to 
+            # use the new version
+
+            if isinstance(ncv, netCDF4.Variable):
+                self._vars[var] = Variable(ncv.group(),
+                                               ncv._name, 
+                                               ncv.datatype, 
+                                               ncv.dimensions, 
+                                               id=ncv._varid)
+
+            else:
+                self._vars[var] = _Variable(self,
+                                                ncv._name, 
+                                                ncv._mastervar,
+                                                ncv._recdimname
+                                          )
+
+
+            # add the new Select class to the Dataset
+            self.select[var] = Select(var,
+                                      self.dimensions.get(var, [None,]),
+                                      self.variables.get(var, [None,]))
+
+
+# ============================================================================
+
+
+
+
+
+
+
 # subclass netCDF4.Variable to alter __getitem__
 
 def __expand_elem__(elem, ndim):
@@ -202,7 +246,7 @@ def __parse_el__(self, elem):
 
             # need "Select" of the parent of the Variable
             # get the slice for this specific selection
-            sel_elem += (self.group().select[dim][el],)
+            sel_elem += (self._grp.select[dim][el],)
         else:
             sel_elem += (el, )
 
@@ -233,7 +277,27 @@ class Variable(netCDF4.Variable):
 
 # ============================================================================
 
+class _Variable(netCDF4._Variable):
+    """subclass netCDF4 to alter __getitem__"""
 
+    def __init__(self, *arg, **kwargs):
+        super(_Variable, self).__init__(*arg, **kwargs)
+
+
+    def __getitem__(self, elem, **kwargs):
+
+        # add Ellipsis if elem has less members than ndim
+        elem = __expand_elem__(elem, self.ndim)
+
+        # find slices that have to be selected and select
+        sel_elem = __parse_el__(self, elem)
+
+        data = super(_Variable, self).__getitem__(sel_elem)
+
+        return data
+
+
+# ============================================================================
 
 
 fN = '/net/exo/landclim/mathause/cesm_data/f.e121.FC5.f19_g16.CTRL_2000-io384.001/lnd/hist/f.e121.FC5.f19_g16.CTRL_2000-io384.001.clm2.h0.0001-01.nc'
@@ -268,6 +332,8 @@ print(ncf.variables['SOILLIQ'][0, {0, 0.1}].shape)
 print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 print(ncf.variables['SOILLIQ'][0, {0, 0.1}, {0, 30}, ...].shape)
 print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+print(ncf.variables['SOILICE'][0, {0, 0.1}, {0, 30}, ...].shape)
+print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 print(ncf.variables['SOILLIQ'][{0}].shape)
 print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 
@@ -282,7 +348,12 @@ print(ncf.variables['SOILLIQ'][0, {0, 0.1}, {0, 30}, ...].shape)
 print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 
 
+fN = '/net/exo/landclim/mathause/cesm_data/f.e121.FC5.f19_g16.CTRL_2000-io384.001/lnd/hist/f.e121.FC5.f19_g16.CTRL_2000-io384.001.clm2.h0.000?-01.nc'
+ncf = MFDataset(fN)
 
+print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+print(ncf.variables['SOILLIQ'][:, {0, 0.1}, {0, 30}, ...].shape)
+print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 
 # print(ncf.variables['SOILLIQ'][{'lat' : (3, 15)}].shape)
 # print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
