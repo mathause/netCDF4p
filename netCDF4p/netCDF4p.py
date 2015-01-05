@@ -2,28 +2,24 @@
 # -*- coding: utf-8 -*-
 
 #Author: Mathias Hauser
-#Date: 
-
-
-
-
+#Date: 14.12.2014
 
 import netCDF4
 import numpy as np
+from glob import glob
 
+from collections import OrderedDict
 # SUBCLASS Dataset and Variable
-
-
-
 # ---------------------------------------------------------------------------
-        
+
+
 def _select(self, item):
 
     if len(item) > 3:
         raise IndexError("selector for dimension %i (%s) has \
             too many elements" % ("XXXX", "XXX"))
 
-    data = self.variable[:] 
+    data = self.variable[:]
 
     if data is None:
         raise RuntimeError("dimension XYZ has no data")
@@ -40,9 +36,10 @@ def _select(self, item):
 
     vals = data[sel]
     verbose(self.name, item, vals[0], stop_val=vals[-1])
-    return sel 
+    return sel
 
 # ---------------------------------------------------------------------------
+
 
 def verbose(name, item, start_val, stop_val):
     """print item and resulting selection"""
@@ -68,7 +65,7 @@ class Select(object):
         self.variable = variable
 
         # se
-        self.selections = dict()
+        self.selections = OrderedDict()
 
     
     def __getitem__(self, item):
@@ -97,8 +94,6 @@ def wherenearest(grid, pos):
     IDX = np.where(val == np.min(val))
     return IDX[0][0]
 
-
-
 # ============================================================================
 # subclass the netCDF4.Dataset class in order to (1) use the new Variable
 # class and (2) the Select class
@@ -106,8 +101,8 @@ def wherenearest(grid, pos):
 class Dataset(netCDF4.Dataset):
     """subclass of netCDF4.Dataset that uses the """
 
-    select = {}
-    
+    #select = dict()
+
     def __init__(self, *arg, **kwargs):
 
         try:
@@ -115,22 +110,29 @@ class Dataset(netCDF4.Dataset):
         except RuntimeError:
             raise RuntimeError("No such file or directory '%s'" % arg[0])
 
+        select = kwargs.pop('select', None)
+        if select is None:
+            self.__dict__['select'] = OrderedDict()
+        else:
+            self.__dict__['select'] = select
 
         for var in self.variables.keys():
             ncv = self.variables[var]
-            # unfortunately we have to reassign "variables" in order to 
+            # unfortunately we have to reassign "variables" in order to
             # use the new version
             self.variables[var] = Variable(ncv.group(),
-                                           ncv._name, 
-                                           ncv.datatype, 
-                                           ncv.dimensions, 
-                                           id=ncv._varid)
-
+                                           ncv._name,
+                                           ncv.datatype,
+                                           ncv.dimensions,
+                                           id=ncv._varid,
+                                           select_parent=self.select
+                                           )
 
             # add the new Select class to the Dataset
             self.select[var] = Select(var,
-                                      self.dimensions.get(var, [None,]),
-                                      self.variables.get(var, [None,]))
+                                      self.dimensions.get(var, [None]),
+                                      self.variables.get(var, [None])
+                                      )
 
 
 # ============================================================================
@@ -140,8 +142,8 @@ class Dataset(netCDF4.Dataset):
 class MFDataset(netCDF4.MFDataset):
     """subclass of netCDF4.Dataset that uses the """
 
-    select = {}
-    
+#    select = dict()
+
     def __init__(self, *arg, **kwargs):
 
         try:
@@ -150,37 +152,93 @@ class MFDataset(netCDF4.MFDataset):
             raise RuntimeError("No such file or directory '%s'" % arg[0])
 
 
+        self.__dict__['select'] = OrderedDict()
+
         for var in self.variables.keys():
             ncv = self.variables[var]
-            # unfortunately we have to reassign "variables" in order to 
+            # unfortunately we have to reassign "variables" in order to
             # use the new version
 
             if isinstance(ncv, netCDF4.Variable):
                 self._vars[var] = Variable(ncv.group(),
-                                               ncv._name, 
-                                               ncv.datatype, 
-                                               ncv.dimensions, 
-                                               id=ncv._varid)
-
+                                           ncv._name,
+                                           ncv.datatype,
+                                           ncv.dimensions,
+                                           id=ncv._varid,
+                                           select_parent=self.select
+                                           )
             else:
                 self._vars[var] = _Variable(self,
-                                                ncv._name, 
-                                                ncv._mastervar,
-                                                ncv._recdimname
-                                          )
-
+                                            ncv._name,
+                                            ncv._mastervar,
+                                            ncv._recdimname,
+                                            select_parent=self.select
+                                            )
 
             # add the new Select class to the Dataset
             self.select[var] = Select(var,
-                                      self.dimensions.get(var, [None,]),
-                                      self.variables.get(var, [None,]))
+                                      self.dimensions.get(var, [None]),
+                                      self.variables.get(var, [None])
+                                      )
+
+# # ============================================================================
+
+
+class MSFDataset(object):
+    """docstring for MSFDataset"""
+    def __init__(self, files, check=False, aggdim=None, exclude=[]):
+        super(MSFDataset, self).__init__()
+        
+        # Open the master file in the base class, so that the CDFMF instance
+        # can be used like a CDF instance.
+        if isinstance(files, str):
+            if files.startswith('http'):
+                msg='cannot using file globbing for remote (OPeNDAP) datasets'
+                raise ValueError(msg)
+            else:
+                files = sorted(glob(files))
+
+
+
+
+
+
+
+        master = files[0]
+        print(master)
+        print(files)
+        
+        cdfm = Dataset(master)
+        # copy attributes from master.
+        for name, value in cdfm.__dict__.items():
+            self.__dict__[name] = value
+        
+
+
+        self._files = files
+
+
+
+
+
+        ncfs = []
+        for _file in files[2:]:
+            ncfs.append(Dataset(_file, select=self.select))
+
+        self._ncfs = ncfs
+
+
+    def __getitem__(self, key):
+        return self._ncfs[key]
+
+    def __iter__(self):
+        return self._ncfs.__iter__()
+
+    def __len__(self):
+        return self._ncfs.__len__()
 
 
 # ============================================================================
-
-
-
-
 
 
 
@@ -216,9 +274,9 @@ def __expand_elem__(elem, ndim):
             # first occurence of Ellipsis
             i = next(el[0] for el in enumerate(elem) if el[1] == Ellipsis)
             # expand
-            elem = elem[:i+1] + (Ellipsis, ) * missing_dim + elem[i+1:]
+            elem = elem[:i+1] + (slice(None), ) * missing_dim + elem[i+1:]
         else:
-            elem = elem + (Ellipsis, ) * missing_dim
+            elem = elem + (slice(None), ) * missing_dim
 
 
     return elem
@@ -229,7 +287,6 @@ def __parse_el__(self, elem):
     """find slices that have to be selected"""
 
     sel_elem = tuple()
-
 
     for i, el in enumerate(elem):
 
@@ -246,7 +303,7 @@ def __parse_el__(self, elem):
 
             # need "Select" of the parent of the Variable
             # get the slice for this specific selection
-            sel_elem += (self._grp.select[dim][el],)
+            sel_elem += (self._select_parent[dim][el],)
         else:
             sel_elem += (el, )
 
@@ -257,10 +314,9 @@ def __parse_el__(self, elem):
 
 class Variable(netCDF4.Variable):
     """subclass netCDF4 to alter __getitem__"""
-
     def __init__(self, *arg, **kwargs):
         super(Variable, self).__init__(*arg, **kwargs)
-
+        self.__dict__['_select_parent'] = kwargs.pop('select_parent')
 
     def __getitem__(self, elem, **kwargs):
 
@@ -281,6 +337,7 @@ class _Variable(netCDF4._Variable):
     """subclass netCDF4 to alter __getitem__"""
 
     def __init__(self, *arg, **kwargs):
+        self._select_parent = kwargs.pop('select_parent')
         super(_Variable, self).__init__(*arg, **kwargs)
 
 
@@ -312,15 +369,15 @@ ncf = Dataset(fN)
 
 
 print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-#print(ncf.select['lat'][(3, 5)])
+print(ncf.select['lat'][(3, 5)])
 print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-print(ncf.variables['SOILLIQ'][(0, 5)].shape)
+print(ncf.variables['SOILLIQ'][0, 5, slice(None), slice(None)].shape)
 print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 print(ncf.variables['SOILLIQ'][0, 5].shape)
 print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-print(ncf.variables['SOILLIQ'][[0, 5]].shape)
+print(ncf.variables['SOILLIQ'][:, [0, 5]].shape)
 print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-print(ncf.variables['SOILLIQ'][:, ...].shape)
+print(ncf.variables['SOILLIQ'][:].shape)
 print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 print(ncf.variables['SOILLIQ'][:].shape)
 print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
@@ -359,3 +416,4 @@ print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 # print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 
 
+ncf = MSFDataset(fN)
