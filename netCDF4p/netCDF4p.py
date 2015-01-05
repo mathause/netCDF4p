@@ -251,12 +251,36 @@ def __expand_elem__(elem, ndim):
     # we need to be sure of the position of all elem
 
     # (1) only 1 elem is given 
-
-    if type(elem) is list or isinstance(elem, set):
-        elem = (elem,)
-
-    if not np.iterable(elem):
+    if not isinstance(elem, tuple):
         elem = (elem, )
+    # if type(elem) is list or isinstance(elem, set):
+    #     elem = (elem,)
+
+    # if not np.iterable(elem):
+    #     elem = (elem, )
+
+
+    # search for named elements (dicts)
+    had_dict = False
+
+    _elem = ()
+    _dict = dict()
+
+    for i, el in enumerate(elem):
+        if isinstance(el, dict):
+            had_dict = True
+
+            for key in el.keys():
+                _dict[key] = el[key]
+
+        elif had_dict:
+            raise KeyError('dict argument can not be followed by positional argument')
+
+        else:
+            _elem = _elem + (el, )
+
+
+    elem = _elem
 
     # (2) make sure there are not too many dimensions in slice.
     if len(elem) > ndim:
@@ -279,14 +303,15 @@ def __expand_elem__(elem, ndim):
             elem = elem + (slice(None), ) * missing_dim
 
 
-    return elem
+    return elem, _dict
 
 # ----------------------------------------------------------------------------
 
-def __parse_el__(self, elem):
+def __parse_el__(self, elem, _dict):
     """find slices that have to be selected"""
 
-    sel_elem = tuple()
+    sel_elem = list()
+
 
     for i, el in enumerate(elem):
 
@@ -303,11 +328,25 @@ def __parse_el__(self, elem):
 
             # need "Select" of the parent of the Variable
             # get the slice for this specific selection
-            sel_elem += (self._select_parent[dim][el],)
+            sel_elem.append(self._select_parent[dim][el])
         else:
-            sel_elem += (el, )
+            sel_elem.append(el)
 
-    return sel_elem
+
+
+        for i, dim in enumerate(self.dimensions):
+            el = _dict.pop(dim, None)
+
+            if el is not None:
+                sel_elem[i] = self._select_parent[dim][el]
+
+
+
+        for key in _dict:
+            print('ignored key: {key}'.format(key=key))
+
+
+    return tuple(sel_elem)
 
 # ----------------------------------------------------------------------------
 
@@ -318,13 +357,13 @@ class Variable(netCDF4.Variable):
         super(Variable, self).__init__(*arg, **kwargs)
         self.__dict__['_select_parent'] = kwargs.pop('select_parent')
 
-    def __getitem__(self, elem, **kwargs):
+    def __getitem__(self, elem):
 
         # add Ellipsis if elem has less members than ndim
-        elem = __expand_elem__(elem, self.ndim)
+        elem, _dict = __expand_elem__(elem, self.ndim)
 
         # find slices that have to be selected and select
-        sel_elem = __parse_el__(self, elem)
+        sel_elem = __parse_el__(self, elem, _dict)
 
         data = super(Variable, self).__getitem__(sel_elem)
 
@@ -341,13 +380,13 @@ class _Variable(netCDF4._Variable):
         super(_Variable, self).__init__(*arg, **kwargs)
 
 
-    def __getitem__(self, elem, **kwargs):
+    def __getitem__(self, elem):
 
         # add Ellipsis if elem has less members than ndim
-        elem = __expand_elem__(elem, self.ndim)
+        elem, _dict = __expand_elem__(elem, self.ndim)
 
         # find slices that have to be selected and select
-        sel_elem = __parse_el__(self, elem)
+        sel_elem = __parse_el__(self, elem, _dict)
 
         data = super(_Variable, self).__getitem__(sel_elem)
 
@@ -393,9 +432,11 @@ print(ncf.variables['SOILICE'][0, {0, 0.1}, {0, 30}, ...].shape)
 print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 print(ncf.variables['SOILLIQ'][{0}].shape)
 print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-
-
-
+print('??????????????')
+print(ncf.variables['lat'][{3}, {'lat' : (5, 10), 'lat' : (20, 30), 'aglkn' : (1, 10)}])
+print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+# print(ncf.variables['lat'][{3}, 7, {'lat' : (5, 10)}])
+print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 
 fN = '/net/exo/landclim/mathause/cesm_data/f.e121.FC5.f19_g16.CTRL_2000-io384.001/lnd/hist/f.e121.FC5.f19_g16.CTRL_2000-io384.001.clm2.h0.0005-01.nc'
 ncf = Dataset(fN)
