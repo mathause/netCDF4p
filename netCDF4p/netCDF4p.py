@@ -35,13 +35,13 @@ def _select(self, item):
     sel = slice(start, stop + 1, step)
 
     vals = data[sel]
-    verbose(self.name, item, vals[0], stop_val=vals[-1])
+    print_selection(self.name, item, vals[0], stop_val=vals[-1])
     return sel
 
 # ---------------------------------------------------------------------------
 
 
-def verbose(name, item, start_val, stop_val):
+def print_selection(name, item, start_val, stop_val):
     """print item and resulting selection"""
     string = "Select '{0}': ".format(name)
 
@@ -343,7 +343,7 @@ def __parse_el__(self, elem, _dict):
 
 
         for key in _dict:
-            print('ignored key: {key}'.format(key=key))
+            print("Select: ignored named subsetting key: '{key}' (not a dimension of the variable)".format(key=key))
 
 
     return tuple(sel_elem)
