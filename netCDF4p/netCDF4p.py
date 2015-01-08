@@ -22,7 +22,8 @@ def _select(self, item):
     data = self.variable[:]
 
     if data is None:
-        raise RuntimeError("dimension XYZ has no data")
+        raise RuntimeError("dimension '{name}' has no data".format(
+            name=self.name))
 
     start = wherenearest(data, item[0])
     stop = start if len(item) < 2 else wherenearest(data, item[1])
@@ -69,18 +70,22 @@ class Select(object):
 
     
     def __getitem__(self, item):
+
+        # convert to tuple (must be hashable)
+        item = tuple(item)
+
+
         # check if this particular case was already selected
         sel = self.selections.get(item, None)
 
-        if sel is not None:
-            return sel
-        else:
+        if sel is None:
             # get the new selection
             sel = _select(self, item)
 
             # assign the new selection to the dict
             self.selections[item] = sel
-            return sel
+
+        return sel
 
     # selections can not be assigned
     def __setitem__(self, item, value):
@@ -282,6 +287,7 @@ def __expand_elem__(elem, ndim):
 
     elem = _elem
 
+
     # (2) make sure there are not too many dimensions in slice.
     if len(elem) > ndim:
         raise ValueError("slicing expression exceeds the number of dimensions \
@@ -302,7 +308,6 @@ def __expand_elem__(elem, ndim):
         else:
             elem = elem + (slice(None), ) * missing_dim
 
-
     return elem, _dict
 
 # ----------------------------------------------------------------------------
@@ -313,12 +318,12 @@ def __parse_el__(self, elem, _dict):
     sel_elem = list()
 
 
+    # select positional arguments if necessary
     for i, el in enumerate(elem):
 
         # coordinate subsetting happens for sets
         if isinstance(el, set):
-            # convert to tuple (must be hashable)
-            el = tuple(el)
+
 
             if len(el) != 2 and len(el) != 1:
                 raise IndexError("Length of coordinate subsetting must be 1 or 2")
@@ -332,18 +337,18 @@ def __parse_el__(self, elem, _dict):
         else:
             sel_elem.append(el)
 
+    # select named arguments if necessary 
+    # (ignore named arguments not in dimensions)
+    for i, dim in enumerate(self.dimensions):
+        el = _dict.pop(dim, None)
+
+        if el is not None:
+            sel_elem[i] = self._select_parent[dim][el]
 
 
-        for i, dim in enumerate(self.dimensions):
-            el = _dict.pop(dim, None)
-
-            if el is not None:
-                sel_elem[i] = self._select_parent[dim][el]
-
-
-
-        for key in _dict:
-            print("Select: ignored named subsetting key: '{key}' (not a dimension of the variable)".format(key=key))
+    # print unused arguments (-> not a dim of the var)
+    for key in _dict:
+        print("Select: ignored named subsetting key: '{key}' (not a dimension of the variable)".format(key=key))
 
 
     return tuple(sel_elem)
@@ -395,66 +400,89 @@ class _Variable(netCDF4._Variable):
 
 # ============================================================================
 
+if __name__ == '__main__':
 
-fN = '/net/exo/landclim/mathause/cesm_data/f.e121.FC5.f19_g16.CTRL_2000-io384.001/lnd/hist/f.e121.FC5.f19_g16.CTRL_2000-io384.001.clm2.h0.0001-01.nc'
-
-
-
-ncf = Dataset(fN)
-
-#ncf = ncp.Dataset(fN)
-
-#print(ncf.variables['SOILLIQ'][Ellipsis, 1:3, {'lat' : (1, 3)}].shape)
+    fN = '/net/exo/landclim/mathause/cesm_data/f.e121.FC5.f19_g16.CTRL_2000-io384.001/lnd/hist/f.e121.FC5.f19_g16.CTRL_2000-io384.001.clm2.h0.0001-01.nc'
 
 
-print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-print(ncf.select['lat'][(3, 5)])
-print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-print(ncf.variables['SOILLIQ'][0, 5, slice(None), slice(None)].shape)
-print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-print(ncf.variables['SOILLIQ'][0, 5].shape)
-print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-print(ncf.variables['SOILLIQ'][:, [0, 5]].shape)
-print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-print(ncf.variables['SOILLIQ'][:].shape)
-print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-print(ncf.variables['SOILLIQ'][:].shape)
-print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-print(ncf.variables['SOILLIQ'][0].shape)
-print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-print(ncf.variables['SOILLIQ'][Ellipsis].shape)
-print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-print(ncf.variables['SOILLIQ'][0, {0, 0.1}].shape)
-print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-print(ncf.variables['SOILLIQ'][0, {0, 0.1}, {0, 30}, ...].shape)
-print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-print(ncf.variables['SOILICE'][0, {0, 0.1}, {0, 30}, ...].shape)
-print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-print(ncf.variables['SOILLIQ'][{0}].shape)
-print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-print('??????????????')
-print(ncf.variables['lat'][{3}, {'lat' : (5, 10), 'lat' : (20, 30), 'aglkn' : (1, 10)}])
-print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-# print(ncf.variables['lat'][{3}, 7, {'lat' : (5, 10)}])
-print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 
-fN = '/net/exo/landclim/mathause/cesm_data/f.e121.FC5.f19_g16.CTRL_2000-io384.001/lnd/hist/f.e121.FC5.f19_g16.CTRL_2000-io384.001.clm2.h0.0005-01.nc'
-ncf = Dataset(fN)
+    ncf = Dataset(fN)
 
-print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-print(ncf.variables['SOILLIQ'][0, {0, 0.1}, {0, 30}, ...].shape)
-print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    #ncf = ncp.Dataset(fN)
+
+    #print(ncf.variables['SOILLIQ'][Ellipsis, 1:3, {'lat' : (1, 3)}].shape)
 
 
-fN = '/net/exo/landclim/mathause/cesm_data/f.e121.FC5.f19_g16.CTRL_2000-io384.001/lnd/hist/f.e121.FC5.f19_g16.CTRL_2000-io384.001.clm2.h0.000?-01.nc'
-ncf = MFDataset(fN)
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    print(ncf.select['lat'][(3, 5)])
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    print(ncf.variables['SOILLIQ'][0, 5, slice(None), slice(None)].shape)
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    print(ncf.variables['SOILLIQ'][0, 5].shape)
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    print(ncf.variables['SOILLIQ'][:, [0, 5]].shape)
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    print(ncf.variables['SOILLIQ'][:].shape)
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    print(ncf.variables['SOILLIQ'][:].shape)
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    print(ncf.variables['SOILLIQ'][0].shape)
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    print(ncf.variables['SOILLIQ'][Ellipsis].shape)
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    print(ncf.variables['SOILLIQ'][0, {0, 0.1}].shape)
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    print(ncf.variables['SOILLIQ'][0, {0, 0.1}, {0, 30}, ...].shape)
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    print(ncf.variables['SOILICE'][0, {0, 0.1}, {0, 30}, ...].shape)
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    print(ncf.variables['SOILLIQ'][{0}].shape)
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    print('??????????????')
+    print(ncf.variables['lat'][{3}, {'lat' : (5, 10), 'lat' : (20, 30), 'aglkn' : (1, 10)}])
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    # print(ncf.variables['lat'][{3}, 7, {'lat' : (5, 10)}])
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 
-print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-print(ncf.variables['SOILLIQ'][:, {0, 0.1}, {0, 30}, ...].shape)
-print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    fN = '/net/exo/landclim/mathause/cesm_data/f.e121.FC5.f19_g16.CTRL_2000-io384.001/lnd/hist/f.e121.FC5.f19_g16.CTRL_2000-io384.001.clm2.h0.0005-01.nc'
+    ncf = Dataset(fN)
 
-# print(ncf.variables['SOILLIQ'][{'lat' : (3, 15)}].shape)
-# print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    print(ncf.variables['SOILLIQ'][0, {0, 0.1}, {0, 30}, ...].shape)
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 
 
-ncf = MSFDataset(fN)
+    fN = '/net/exo/landclim/mathause/cesm_data/f.e121.FC5.f19_g16.CTRL_2000-io384.001/lnd/hist/f.e121.FC5.f19_g16.CTRL_2000-io384.001.clm2.h0.000?-01.nc'
+    ncf = MFDataset(fN)
+
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    print(ncf.variables['SOILLIQ'][:, {0, 0.1}, {0, 30}, ...].shape)
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+
+    # print(ncf.variables['SOILLIQ'][{'lat' : (3, 15)}].shape)
+    # print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+
+
+    ncf = MSFDataset(fN)
+
+
+
+
+
+
+
+    fN = '/home/mathause/Downloads/RawData_GHCNDEX_TXx_1951-2014_ANN_from-90to90_from-180to180.nc'
+    ncf = Dataset(fN)
+
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    print(ncf.variables['TXx'][:, {50, 60}, {35, 55}].shape)
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    print(ncf.variables['TXx'][:, {'lat' : (50, 60)}, {'lon' : (35, 55)}].shape)
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+
+
+
+
+
+
+
