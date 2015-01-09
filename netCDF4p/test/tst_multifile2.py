@@ -1,4 +1,4 @@
-from netCDF4 import Dataset, MFDataset, MFTime, num2date, date2num, date2index
+from netCDF4p import Dataset, MFDataset, MFTime, num2date, date2num, date2index
 import numpy as np
 from numpy.random import seed, randint
 from numpy.testing import assert_array_equal, assert_equal

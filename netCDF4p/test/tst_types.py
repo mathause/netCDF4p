@@ -5,7 +5,7 @@ import tempfile
 import numpy as NP
 from numpy.testing import assert_array_equal, assert_array_almost_equal
 from numpy.random.mtrand import uniform
-import netCDF4
+import netCDF4p as netCDF4
 
 # test primitive data types.
 

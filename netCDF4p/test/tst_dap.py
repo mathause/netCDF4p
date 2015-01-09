@@ -1,5 +1,5 @@
 import unittest
-import netCDF4
+import netCDF4p as netCDF4
 
 # test accessing data over http with opendap.
 

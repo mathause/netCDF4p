@@ -1,6 +1,6 @@
 from netcdftime import utime, JulianDayFromDate, DateFromJulianDay, date2index
 from netcdftime import datetime as datetimex, date2num
-from netCDF4 import Dataset, num2date
+from netCDF4p import Dataset, num2date
 import numpy
 import random
 import sys

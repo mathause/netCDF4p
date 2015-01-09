@@ -2,7 +2,8 @@
 
 Bug is observed with EPD 7.3-1 and 7.3-2 (64-bit)
 """
-import netCDF4, numpy, tempfile, sys, os, unittest
+import netCDF4p as netCDF4
+import numpy, tempfile, sys, os, unittest
 from numpy.testing import assert_array_equal, assert_array_almost_equal
 
 def string_to_bytes(xstring, size=-1, pad="\0"):

@@ -5,7 +5,7 @@ import os
 import tempfile
 import numpy as NP
 from numpy.random.mtrand import uniform 
-import netCDF4
+import netCDF4p as netCDF4
 
 try:
     from collections import OrderedDict

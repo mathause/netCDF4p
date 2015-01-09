@@ -1,5 +1,5 @@
 from numpy.testing import assert_equal
-import netCDF4 as nc
+import netCDF4p as nc
 import unittest
 import numpy as np
 

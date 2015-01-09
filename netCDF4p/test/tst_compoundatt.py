@@ -2,7 +2,7 @@ import sys
 import unittest
 import os
 import tempfile
-from netCDF4 import Dataset, CompoundType, chartostring, stringtoarr, \
+from netCDF4p import Dataset, CompoundType, chartostring, stringtoarr, \
 default_encoding
 import numpy as np
 from numpy.testing import assert_array_equal, assert_array_almost_equal

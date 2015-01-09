@@ -6,7 +6,7 @@ import numpy as np
 from numpy import ma
 from numpy.testing import assert_array_almost_equal
 
-from netCDF4 import Dataset, default_fillvals
+from netCDF4p import Dataset, default_fillvals
 
 # Test automatic scaling of variables (set_auto_scale())
 

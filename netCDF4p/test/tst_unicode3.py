@@ -1,4 +1,4 @@
-import netCDF4
+import netCDF4p as netCDF4
 import numpy as np
 import sys, unittest, os, tempfile
 

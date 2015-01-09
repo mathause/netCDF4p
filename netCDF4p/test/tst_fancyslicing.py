@@ -1,4 +1,4 @@
-from netCDF4 import Dataset
+from netCDF4p import Dataset
 from numpy.random import seed, randint
 from numpy.testing import assert_array_equal, assert_equal
 import tempfile, unittest, os, random

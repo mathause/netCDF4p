@@ -4,7 +4,7 @@ import os
 import tempfile
 import numpy as NP
 from numpy.testing import assert_almost_equal
-import netCDF4
+import netCDF4p as netCDF4
 import math
 
 VAR_NAME='temp'

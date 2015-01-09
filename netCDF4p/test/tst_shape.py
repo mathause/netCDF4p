@@ -1,4 +1,4 @@
-from netCDF4 import Dataset
+from netCDF4p import Dataset
 import tempfile, unittest, os
 import numpy as np
 

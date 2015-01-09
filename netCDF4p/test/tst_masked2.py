@@ -5,7 +5,7 @@ import tempfile
 import numpy as np
 from numpy import ma, seterr
 from numpy.testing import assert_array_equal, assert_array_almost_equal
-from netCDF4 import Dataset, default_fillvals
+from netCDF4p import Dataset, default_fillvals
 
 seterr(over='ignore') # don't print warning for overflow errors 
 

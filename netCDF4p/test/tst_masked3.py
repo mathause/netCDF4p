@@ -5,7 +5,7 @@ import tempfile
 import numpy as np
 from numpy import ma
 from numpy.testing import assert_array_almost_equal
-from netCDF4 import Dataset, default_fillvals
+from netCDF4p import Dataset, default_fillvals
 
 # Test automatic conversion of masked arrays (set_auto_mask())
 

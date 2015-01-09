@@ -1,4 +1,4 @@
-import netCDF4
+import netCDF4p as netCDF4
 import numpy as np
 import unittest, os, tempfile
 from numpy.testing import assert_array_equal, assert_array_almost_equal

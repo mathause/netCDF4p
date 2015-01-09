@@ -3,7 +3,7 @@ import unittest
 import os
 import tempfile
 import numpy as NP
-import netCDF4
+import netCDF4p as netCDF4
 
 # test group creation.
 

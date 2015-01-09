@@ -1,4 +1,4 @@
-from netCDF4 import Dataset, stringtochar, chartostring
+from netCDF4p import Dataset, stringtochar, chartostring
 import random, numpy
 import unittest
 import os

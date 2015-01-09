@@ -1,4 +1,8 @@
-import glob, os, sys, unittest, netCDF4
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import glob, os, sys, unittest
+import netCDF4p as netCDF4
 from netCDF4 import getlibversion,__hdf5libversion__,__netcdf4libversion__,__version__
 
 # can also just run
