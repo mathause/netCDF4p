@@ -5,6 +5,13 @@
 #Date: 14.12.2014
 
 import netCDF4
+
+from netCDF4 import Group, CompoundType, chartostring, stringtoarr, \
+default_encoding, _quantize, default_fillvals, MFTime, num2date, date2num, \
+date2index, __has_rename_grp__, stringtochar, chartostring, \
+getlibversion, __hdf5libversion__, __netcdf4libversion__, __version__, _StartCountStride, is_native_little, \
+_out_array_shape
+
 import numpy as np
 from glob import glob
 
@@ -36,7 +43,8 @@ def _select(self, item):
     sel = slice(start, stop + 1, step)
 
     vals = data[sel]
-    print_selection(self.name, item, vals[0], stop_val=vals[-1])
+    if self.verbose:
+        print_selection(self.name, item, vals[0], stop_val=vals[-1])
     return sel
 
 # ---------------------------------------------------------------------------
@@ -58,18 +66,26 @@ def print_selection(name, item, start_val, stop_val):
 
 class Select(object):
     """docstring for select"""
-    def __init__(self, name, dimension, variable):
+    def __init__(self, name, dimension, variable, verbose=True):
         super(Select, self).__init__()
 
         self.name = name
         self.dimension = dimension
         self.variable = variable
 
+        self.verbose = verbose
+
         # se
         self.selections = OrderedDict()
 
-    
     def __getitem__(self, item):
+
+        # as 'set' is sorted it is not possible to pass a 'step'
+        if isinstance(item, set):
+            if len(item) == 3:
+                raise IndexError("Can not pass a step argument with a set")
+            elif len(item) not in [1, 2]:
+                raise IndexError("When providing a set {}, it must have 1 or 2 elements")
 
         # convert to tuple (must be hashable)
         item = tuple(item)
@@ -95,6 +111,10 @@ class Select(object):
 
 def wherenearest(grid, pos):
     """return index nearest to pos"""
+
+    if grid.ndim != 1:
+        raise RuntimeError("Can not select if coordinate is not 1-Dimensional")
+
     val = np.abs(grid - pos)
     IDX = np.where(val == np.min(val))
     return IDX[0][0]
@@ -114,6 +134,8 @@ class Dataset(netCDF4.Dataset):
             super(Dataset, self).__init__(*arg, **kwargs)
         except RuntimeError:
             raise RuntimeError("No such file or directory '%s'" % arg[0])
+
+        verbose = kwargs.get('verbose', True)
 
         select = kwargs.pop('select', None)
         if select is None:
@@ -136,7 +158,8 @@ class Dataset(netCDF4.Dataset):
             # add the new Select class to the Dataset
             self.select[var] = Select(var,
                                       self.dimensions.get(var, [None]),
-                                      self.variables.get(var, [None])
+                                      self.variables.get(var, [None]),
+                                      verbose=verbose
                                       )
 
 
@@ -156,6 +179,7 @@ class MFDataset(netCDF4.MFDataset):
         except RuntimeError:
             raise RuntimeError("No such file or directory '%s'" % arg[0])
 
+        verbose = kwargs.get('verbose', True)
 
         self.__dict__['select'] = OrderedDict()
 
@@ -191,7 +215,7 @@ class MFDataset(netCDF4.MFDataset):
 
 class MSFDataset(object):
     """docstring for MSFDataset"""
-    def __init__(self, files, check=False, aggdim=None, exclude=[]):
+    def __init__(self, files, check=False, aggdim=None, exclude=[], verbose=True):
         super(MSFDataset, self).__init__()
         
         # Open the master file in the base class, so that the CDFMF instance
@@ -228,7 +252,7 @@ class MSFDataset(object):
 
         ncfs = []
         for _file in files[2:]:
-            ncfs.append(Dataset(_file, select=self.select))
+            ncfs.append(Dataset(_file, select=self.select, verbose=verbose))
 
         self._ncfs = ncfs
 
@@ -251,6 +275,10 @@ class MSFDataset(object):
 
 def __expand_elem__(elem, ndim):
     """parse the slice input"""
+
+    # scalar variables can have ndim = 0
+    if ndim == 0:
+        ndim =1
 
     # PARSE ELEM
     # we need to be sure of the position of all elem
@@ -325,15 +353,18 @@ def __parse_el__(self, elem, _dict):
         if isinstance(el, set):
 
 
-            if len(el) != 2 and len(el) != 1:
-                raise IndexError("Length of coordinate subsetting must be 1 or 2")
-
             # name of the dimension
             dim = self.dimensions[i]
 
             # need "Select" of the parent of the Variable
             # get the slice for this specific selection
-            sel_elem.append(self._select_parent[dim][el])
+
+            try:
+                s = self._select_parent[dim]
+            except KeyError:
+                raise IndexError("'{dim}'' is not a dimension of variable '{name}', cannot select".format(dim=dim, name=self.name))
+
+            sel_elem.append(s[el])
         else:
             sel_elem.append(el)
 
