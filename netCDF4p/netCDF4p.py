@@ -1,19 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-#Author: Mathias Hauser
-#Date: 14.12.2014
+# Author: Mathias Hauser
+# Date: 14.12.2014
 
 import netCDF4
 
 from netCDF4 import Group, CompoundType, chartostring, stringtoarr, \
-default_encoding, _quantize, default_fillvals, MFTime, num2date, date2num, \
-date2index, __has_rename_grp__, stringtochar, chartostring, \
-getlibversion, __hdf5libversion__, __netcdf4libversion__, __version__, _StartCountStride, is_native_little, \
-_out_array_shape
+    default_encoding, _quantize, default_fillvals, MFTime, num2date, date2num, \
+    date2index, __has_rename_grp__, stringtochar, chartostring, \
+    getlibversion, __hdf5libversion__, __netcdf4libversion__, __version__, _StartCountStride, is_native_little, \
+    _out_array_shape
 
 import numpy as np
 from glob import glob
+
+from __future__ import print_function
 
 from collections import OrderedDict
 # SUBCLASS Dataset and Variable
@@ -57,15 +59,18 @@ def print_selection(name, item, start_val, stop_val):
     if len(item) == 1:
         msg = "{0}{1} selects: {2:5.3f}".format(string, item[0], start_val)
     elif len(item) == 2:
-        msg = "{0}{1}...{2} selects: {3:5.3f}...{4:5.3f}".format(string,
-         item[0], item[1], start_val, stop_val)
+        msg = ("{0}{1}...{2} selects: {3:5.3f}...{4:5.3f}".
+               format(string, item[0], item[1], start_val, stop_val))
 
     print(msg)
 
 # ============================================================================
 
+
 class Select(object):
+
     """docstring for select"""
+
     def __init__(self, name, dimension, variable, verbose=True):
         super(Select, self).__init__()
 
@@ -85,11 +90,11 @@ class Select(object):
             if len(item) == 3:
                 raise IndexError("Can not pass a step argument with a set")
             elif len(item) not in [1, 2]:
-                raise IndexError("When providing a set {}, it must have 1 or 2 elements")
+                raise IndexError(
+                    "When providing a set {}, it must have 1 or 2 elements")
 
         # convert to tuple (must be hashable)
         item = tuple(item)
-
 
         # check if this particular case was already selected
         sel = self.selections.get(item, None)
@@ -109,6 +114,7 @@ class Select(object):
 
 # ============================================================================
 
+
 def wherenearest(grid, pos):
     """return index nearest to pos"""
 
@@ -123,7 +129,9 @@ def wherenearest(grid, pos):
 # subclass the netCDF4.Dataset class in order to (1) use the new Variable
 # class and (2) the Select class
 
+
 class Dataset(netCDF4.Dataset):
+
     """subclass of netCDF4.Dataset that uses the """
 
     #select = dict()
@@ -168,6 +176,7 @@ class Dataset(netCDF4.Dataset):
 # class and (2) the Select class
 
 class MFDataset(netCDF4.MFDataset):
+
     """subclass of netCDF4.Dataset that uses the """
 
 #    select = dict()
@@ -210,52 +219,44 @@ class MFDataset(netCDF4.MFDataset):
                                       self.variables.get(var, [None])
                                       )
 
-# # ============================================================================
+# ============================================================================
 
 
 class MSFDataset(object):
+
     """docstring for MSFDataset"""
-    def __init__(self, files, check=False, aggdim=None, exclude=[], verbose=True):
+
+    def __init__(self, files, check=False, aggdim=None, exclude=[],
+                 verbose=True):
         super(MSFDataset, self).__init__()
-        
+
         # Open the master file in the base class, so that the CDFMF instance
         # can be used like a CDF instance.
         if isinstance(files, str):
             if files.startswith('http'):
-                msg='cannot using file globbing for remote (OPeNDAP) datasets'
+                msg = 'cannot use file globbing for remote (OPeNDAP) datasets'
                 raise ValueError(msg)
             else:
                 files = sorted(glob(files))
 
-
-
-
-
-
-
         master = files[0]
         print(master)
         print(files)
-        
+
         cdfm = Dataset(master)
         # copy attributes from master.
         for name, value in cdfm.__dict__.items():
             self.__dict__[name] = value
-        
-
 
         self._files = files
 
-
-
-
-
         ncfs = []
+
         for _file in files[2:]:
-            ncfs.append(Dataset(_file, select=self.select, verbose=verbose))
+            ncfs.append(Dataset(_file, select=self.select,
+                                verbose=verbose))
 
         self._ncfs = ncfs
-
 
     def __getitem__(self, key):
         return self._ncfs[key]
@@ -270,7 +271,6 @@ class MSFDataset(object):
 # ============================================================================
 
 
-
 # subclass netCDF4.Variable to alter __getitem__
 
 def __expand_elem__(elem, ndim):
@@ -278,12 +278,12 @@ def __expand_elem__(elem, ndim):
 
     # scalar variables can have ndim = 0
     if ndim == 0:
-        ndim =1
+        ndim = 1
 
     # PARSE ELEM
     # we need to be sure of the position of all elem
 
-    # (1) only 1 elem is given 
+    # (1) only 1 elem is given
     if not isinstance(elem, tuple):
         elem = (elem, )
     # if type(elem) is list or isinstance(elem, set):
@@ -291,7 +291,6 @@ def __expand_elem__(elem, ndim):
 
     # if not np.iterable(elem):
     #     elem = (elem, )
-
 
     # search for named elements (dicts)
     had_dict = False
@@ -307,14 +306,12 @@ def __expand_elem__(elem, ndim):
                 _dict[key] = el[key]
 
         elif had_dict:
-            raise KeyError('dict argument can not be followed by positional argument')
+            raise SyntaxError("non-keyword arg after keyword arg ('dict')")
 
         else:
             _elem = _elem + (el, )
 
-
     elem = _elem
-
 
     # (2) make sure there are not too many dimensions in slice.
     if len(elem) > ndim:
@@ -332,7 +329,7 @@ def __expand_elem__(elem, ndim):
             # first occurence of Ellipsis
             i = next(el[0] for el in enumerate(elem) if el[1] == Ellipsis)
             # expand
-            elem = elem[:i+1] + (slice(None), ) * missing_dim + elem[i+1:]
+            elem = elem[:i + 1] + (slice(None), ) * missing_dim + elem[i + 1:]
         else:
             elem = elem + (slice(None), ) * missing_dim
 
@@ -340,18 +337,17 @@ def __expand_elem__(elem, ndim):
 
 # ----------------------------------------------------------------------------
 
+
 def __parse_el__(self, elem, _dict):
     """find slices that have to be selected"""
 
     sel_elem = list()
-
 
     # select positional arguments if necessary
     for i, el in enumerate(elem):
 
         # coordinate subsetting happens for sets
         if isinstance(el, set):
-
 
             # name of the dimension
             dim = self.dimensions[i]
@@ -362,13 +358,16 @@ def __parse_el__(self, elem, _dict):
             try:
                 s = self._select_parent[dim]
             except KeyError:
-                raise IndexError("'{dim}'' is not a dimension of variable '{name}', cannot select".format(dim=dim, name=self.name))
+                msg = ("'{dim}'' is not a dimension of variable "
+                       "'{name}', cannot select".format(dim=dim,
+                                                        name=self.name))
+                raise RuntimeError(msg)
 
             sel_elem.append(s[el])
         else:
             sel_elem.append(el)
 
-    # select named arguments if necessary 
+    # select named arguments if necessary
     # (ignore named arguments not in dimensions)
     for i, dim in enumerate(self.dimensions):
         el = _dict.pop(dim, None)
@@ -376,11 +375,11 @@ def __parse_el__(self, elem, _dict):
         if el is not None:
             sel_elem[i] = self._select_parent[dim][el]
 
-
     # print unused arguments (-> not a dim of the var)
     for key in _dict:
-        print("Select: ignored named subsetting key: '{key}' (not a dimension of the variable)".format(key=key))
-
+        msg = ("Select: ignored named subsetting key: '{key}' "
+               "(not a dimension of the variable)".format(key=key))
+        print(msg)
 
     return tuple(sel_elem)
 
@@ -388,7 +387,9 @@ def __parse_el__(self, elem, _dict):
 
 
 class Variable(netCDF4.Variable):
+
     """subclass netCDF4 to alter __getitem__"""
+
     def __init__(self, *arg, **kwargs):
         super(Variable, self).__init__(*arg, **kwargs)
         self.__dict__['_select_parent'] = kwargs.pop('select_parent')
@@ -409,12 +410,12 @@ class Variable(netCDF4.Variable):
 # ============================================================================
 
 class _Variable(netCDF4._Variable):
+
     """subclass netCDF4 to alter __getitem__"""
 
     def __init__(self, *arg, **kwargs):
         self._select_parent = kwargs.pop('select_parent')
         super(_Variable, self).__init__(*arg, **kwargs)
-
 
     def __getitem__(self, elem):
 
@@ -435,14 +436,11 @@ if __name__ == '__main__':
 
     fN = '/net/exo/landclim/mathause/cesm_data/f.e121.FC5.f19_g16.CTRL_2000-io384.001/lnd/hist/f.e121.FC5.f19_g16.CTRL_2000-io384.001.clm2.h0.0001-01.nc'
 
-
-
     ncf = Dataset(fN)
 
     #ncf = ncp.Dataset(fN)
 
     #print(ncf.variables['SOILLIQ'][Ellipsis, 1:3, {'lat' : (1, 3)}].shape)
-
 
     print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
     print(ncf.select['lat'][(3, 5)])
@@ -470,7 +468,8 @@ if __name__ == '__main__':
     print(ncf.variables['SOILLIQ'][{0}].shape)
     print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
     print('??????????????')
-    print(ncf.variables['lat'][{3}, {'lat' : (5, 10), 'lat' : (20, 30), 'aglkn' : (1, 10)}])
+    print(ncf.variables['lat'][
+          {3}, {'lat': (5, 10), 'lat': (20, 30), 'aglkn': (1, 10)}])
     print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
     # print(ncf.variables['lat'][{3}, 7, {'lat' : (5, 10)}])
     print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
@@ -482,7 +481,6 @@ if __name__ == '__main__':
     print(ncf.variables['SOILLIQ'][0, {0, 0.1}, {0, 30}, ...].shape)
     print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 
-
     fN = '/net/exo/landclim/mathause/cesm_data/f.e121.FC5.f19_g16.CTRL_2000-io384.001/lnd/hist/f.e121.FC5.f19_g16.CTRL_2000-io384.001.clm2.h0.000?-01.nc'
     ncf = MFDataset(fN)
 
@@ -493,14 +491,7 @@ if __name__ == '__main__':
     # print(ncf.variables['SOILLIQ'][{'lat' : (3, 15)}].shape)
     # print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 
-
     ncf = MSFDataset(fN)
-
-
-
-
-
-
 
     fN = '/home/mathause/Downloads/RawData_GHCNDEX_TXx_1951-2014_ANN_from-90to90_from-180to180.nc'
     ncf = Dataset(fN)
@@ -508,12 +499,5 @@ if __name__ == '__main__':
     print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
     print(ncf.variables['TXx'][:, {50, 60}, {35, 55}].shape)
     print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-    print(ncf.variables['TXx'][:, {'lat' : (50, 60)}, {'lon' : (35, 55)}].shape)
+    print(ncf.variables['TXx'][:, {'lat': (50, 60)}, {'lon': (35, 55)}].shape)
     print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-
-
-
-
-
-
-
