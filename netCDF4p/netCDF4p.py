@@ -4,6 +4,8 @@
 # Author: Mathias Hauser
 # Date: 14.12.2014
 
+from __future__ import print_function
+
 import netCDF4
 
 from netCDF4 import Group, CompoundType, chartostring, stringtoarr, \
@@ -15,7 +17,6 @@ from netCDF4 import Group, CompoundType, chartostring, stringtoarr, \
 import numpy as np
 from glob import glob
 
-from __future__ import print_function
 
 from collections import OrderedDict
 # SUBCLASS Dataset and Variable
@@ -216,7 +217,8 @@ class MFDataset(netCDF4.MFDataset):
             # add the new Select class to the Dataset
             self.select[var] = Select(var,
                                       self.dimensions.get(var, [None]),
-                                      self.variables.get(var, [None])
+                                      self.variables.get(var, [None]),
+                                      verbose=verbose
                                       )
 
 # ============================================================================
@@ -286,11 +288,6 @@ def __expand_elem__(elem, ndim):
     # (1) only 1 elem is given
     if not isinstance(elem, tuple):
         elem = (elem, )
-    # if type(elem) is list or isinstance(elem, set):
-    #     elem = (elem,)
-
-    # if not np.iterable(elem):
-    #     elem = (elem, )
 
     # search for named elements (dicts)
     had_dict = False
@@ -323,14 +320,16 @@ def __expand_elem__(elem, ndim):
 
     missing_dim = ndim - len(elem)
 
+    # Note: netCDF4 replaces Ellipsis with slice(None)
     if missing_dim > 0:
         # the first occurence of Ellipsis gets expanded
         if Ellipsis in elem:
-            # first occurence of Ellipsis
+            # find index of first occurence of Ellipsis
             i = next(el[0] for el in enumerate(elem) if el[1] == Ellipsis)
             # expand
             elem = elem[:i + 1] + (slice(None), ) * missing_dim + elem[i + 1:]
         else:
+            # add 'Ellipsis' at end
             elem = elem + (slice(None), ) * missing_dim
 
     return elem, _dict
@@ -352,7 +351,7 @@ def __parse_el__(self, elem, _dict):
             # name of the dimension
             dim = self.dimensions[i]
 
-            # need "Select" of the parent of the Variable
+            # need "Select" of the group of the Variable
             # get the slice for this specific selection
 
             try:
