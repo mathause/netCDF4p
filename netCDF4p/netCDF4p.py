@@ -152,10 +152,9 @@ class Dataset(netCDF4.Dataset):
         else:
             self.__dict__['select'] = select
 
-        for var in self.variables.keys():
-            ncv = self.variables[var]
-            # unfortunately we have to reassign "variables" in order to
-            # use the new version
+        # unfortunately we have to reassign "variables" in order to
+        # use the new version (of 'Variable')
+        for var, ncv in self.variables.iteritems():
             self.variables[var] = Variable(ncv.group(),
                                            ncv._name,
                                            ncv.datatype,
@@ -164,10 +163,12 @@ class Dataset(netCDF4.Dataset):
                                            select_parent=self.select
                                            )
 
-            # add the new Select class to the Dataset
-            self.select[var] = Select(var,
-                                      self.dimensions.get(var, [None]),
-                                      self.variables.get(var, [None]),
+        # add the new Select class to the Dataset
+        for dim, ncd in self.dimensions.iteritems():
+            print(dim)
+            self.select[dim] = Select(dim,
+                                      ncd,
+                                      self.variables.get(dim, None),
                                       verbose=verbose
                                       )
 
@@ -193,10 +194,10 @@ class MFDataset(netCDF4.MFDataset):
 
         self.__dict__['select'] = OrderedDict()
 
-        for var in self.variables.keys():
-            ncv = self.variables[var]
-            # unfortunately we have to reassign "variables" in order to
-            # use the new version
+        # unfortunately we have to reassign "variables" in order to
+        # use the new version
+        for var, ncv in self.variables.iteritems():
+
 
             if isinstance(ncv, netCDF4.Variable):
                 self._vars[var] = Variable(ncv.group(),
@@ -214,12 +215,15 @@ class MFDataset(netCDF4.MFDataset):
                                             select_parent=self.select
                                             )
 
-            # add the new Select class to the Dataset
-            self.select[var] = Select(var,
-                                      self.dimensions.get(var, [None]),
-                                      self.variables.get(var, [None]),
+        # add the new Select class to the Dataset
+        for dim, ncd in self.dimensions.iteritems():
+            self.select[var] = Select(dim,
+                                      ncd,
+                                      self.variables.get(var, None),
                                       verbose=verbose
                                       )
+
+
 
 # ============================================================================
 
@@ -357,7 +361,7 @@ def __parse_el__(self, elem, _dict):
             try:
                 s = self._select_parent[dim]
             except KeyError:
-                msg = ("'{dim}'' is not a dimension of variable "
+                msg = ("'{dim}' is not a dimension of variable "
                        "'{name}', cannot select".format(dim=dim,
                                                         name=self.name))
                 raise RuntimeError(msg)
