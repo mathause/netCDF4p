@@ -94,6 +94,11 @@ class Select(object):
                 raise IndexError(
                     "When providing a set {}, it must have 1 or 2 elements")
 
+        # check size if tuple is passed (named argument)
+        if len(item) not in [1, 2, 3]:
+            raise IndexError("When providing a named selection, "
+                             "it must have 1, 2 or 3 elements")
+
         # convert to tuple (must be hashable)
         item = tuple(item)
 
