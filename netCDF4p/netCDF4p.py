@@ -14,11 +14,12 @@ from netCDF4 import Group, CompoundType, chartostring, stringtoarr, \
     getlibversion, __hdf5libversion__, __netcdf4libversion__, __version__, _StartCountStride, is_native_little, \
     _out_array_shape
 
+from collections import OrderedDict
+from functools import wraps
 import numpy as np
 from glob import glob
 
 
-from collections import OrderedDict
 # SUBCLASS Dataset and Variable
 # ---------------------------------------------------------------------------
 
@@ -394,6 +395,24 @@ def __parse_el__(self, elem, _dict):
 # ----------------------------------------------------------------------------
 
 
+def coordinate_selection(getitem_func):
+
+    @wraps(getitem_func)
+    def wrap_getitem(self, elem):
+        # add Ellipsis if elem has less members than ndim
+        elem, _dict = __expand_elem__(elem, self.ndim)
+
+        # find slices that have to be selected and select
+        sel_elem = __parse_el__(self, elem, _dict)
+
+        return getitem_func(self, sel_elem)
+
+    return wrap_getitem
+
+
+
+# ----------------------------------------------------------------------------
+
 class Variable(netCDF4.Variable):
 
     """subclass netCDF4 to alter __getitem__"""
@@ -402,20 +421,12 @@ class Variable(netCDF4.Variable):
         super(Variable, self).__init__(*arg, **kwargs)
         self.__dict__['_select_parent'] = kwargs.pop('select_parent')
 
+    @coordinate_selection
     def __getitem__(self, elem):
-
-        # add Ellipsis if elem has less members than ndim
-        elem, _dict = __expand_elem__(elem, self.ndim)
-
-        # find slices that have to be selected and select
-        sel_elem = __parse_el__(self, elem, _dict)
-
-        data = super(Variable, self).__getitem__(sel_elem)
-
-        return data
-
+        return super(Variable, self).__getitem__(elem)
 
 # ============================================================================
+
 
 class _Variable(netCDF4._Variable):
 
@@ -425,20 +436,12 @@ class _Variable(netCDF4._Variable):
         self._select_parent = kwargs.pop('select_parent')
         super(_Variable, self).__init__(*arg, **kwargs)
 
+    @coordinate_selection
     def __getitem__(self, elem):
-
-        # add Ellipsis if elem has less members than ndim
-        elem, _dict = __expand_elem__(elem, self.ndim)
-
-        # find slices that have to be selected and select
-        sel_elem = __parse_el__(self, elem, _dict)
-
-        data = super(_Variable, self).__getitem__(sel_elem)
-
-        return data
-
+        return super(_Variable, self).__getitem__(elem)
 
 # ============================================================================
+
 
 if __name__ == '__main__':
 
