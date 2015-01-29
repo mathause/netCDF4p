@@ -171,7 +171,6 @@ class Dataset(netCDF4.Dataset):
 
         # add the new Select class to the Dataset
         for dim, ncd in self.dimensions.iteritems():
-            print(dim)
             self.select[dim] = Select(dim,
                                       ncd,
                                       self.variables.get(dim, None),
