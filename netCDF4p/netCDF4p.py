@@ -305,19 +305,17 @@ def __expand_elem__(elem, ndim):
     _elem = ()
     _dict = dict()
 
+    # loop through given elements to
+    # (1) collect all named arguments (dict)
+    # (2) make sure a named argument is not followed by a non-named arg
     for i, el in enumerate(elem):
         if isinstance(el, dict):
             had_dict = True
-
-            for key in el.keys():
-                _dict[key] = el[key]
-
+            _dict.update(el)
         elif had_dict:
             raise SyntaxError("non-keyword arg after keyword arg ('dict')")
-
         else:
             _elem = _elem + (el, )
-
     elem = _elem
 
     # (2) make sure there are not too many dimensions in slice.
@@ -393,7 +391,6 @@ def __parse_el__(self, elem, _dict):
     return tuple(sel_elem)
 
 # ----------------------------------------------------------------------------
-
 
 def coordinate_selection(getitem_func):
 
