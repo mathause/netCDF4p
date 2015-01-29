@@ -9,8 +9,11 @@ setup(name='netCDF4p',
     license='MIT',
     packages=['netCDF4p'],
     install_requires=[
-        'netCDF4',
-		'numpy',
+        'collections',
+        'functools',
+        'glob'
+        'numpy',
+        'netCDF4'
 		],
     zip_safe=False)
 
