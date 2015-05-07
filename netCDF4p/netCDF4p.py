@@ -20,6 +20,22 @@ import numpy as np
 from glob import glob
 
 
+# coordinate subseting/ indexing
+
+
+# Given you have a variable with the dimensions time x lat x lon you can
+# select a region as follows:
+
+# ncf = nc.Dataset(file)
+# T = ncf.variables['temp'][:, {lat_from, lat_to}, {lon_from, lon_to}]
+
+# it will look for the coordinate that is closest to lat_from and this will
+# give the first index.
+# If 
+# lat = [0, 10, 20, 30, 40, 50, 60 70, 80, 90], lat_from = 15 and lat_to = 30, 
+# {lat_from, lat_to} will be 'replaced' by slice(2, 4 + 1)
+
+
 # SUBCLASS Dataset and Variable
 # ---------------------------------------------------------------------------
 
@@ -30,12 +46,13 @@ def _select(self, item):
         raise IndexError("selector for dimension %i (%s) has \
             too many elements" % ("XXXX", "XXX"))
 
-    data = self.variable[:]
 
-    if data is None:
+    if self.variable is None:
         raise RuntimeError("dimension '{name}' has no data".format(
             name=self.name))
 
+    data = self.variable[:]
+    
     start = wherenearest(data, item[0])
     stop = start if len(item) < 2 else wherenearest(data, item[1])
     step = 1 if len(item) < 3 else item[2]
@@ -108,6 +125,7 @@ class Select(object):
 
         if sel is None:
             # get the new selection
+
             sel = _select(self, item)
 
             # assign the new selection to the dict
@@ -222,9 +240,9 @@ class MFDataset(netCDF4.MFDataset):
 
         # add the new Select class to the Dataset
         for dim, ncd in self.dimensions.iteritems():
-            self.select[var] = Select(dim,
+            self.select[dim] = Select(dim,
                                       ncd,
-                                      self.variables.get(var, None),
+                                      self.variables.get(dim, None),
                                       verbose=verbose
                                       )
 
@@ -248,11 +266,15 @@ class MSFDataset(object):
                 msg = 'cannot use file globbing for remote (OPeNDAP) datasets'
                 raise ValueError(msg)
             else:
+                files_in = files
                 files = sorted(glob(files))
 
+            if len(files) == 0:
+                msg = "No such file: '{0}'".format(files_in)
+                raise RuntimeError(msg)
+
+
         master = files[0]
-        print(master)
-        print(files)
 
         cdfm = Dataset(master)
         # copy attributes from master.
@@ -284,9 +306,10 @@ class MSFDataset(object):
 
 # subclass netCDF4.Variable to alter __getitem__
 
-def __expand_elem__(elem, ndim):
+def __expand_elem__(self, elem):
     """parse the slice input"""
 
+    ndim = self.ndim
     # scalar variables can have ndim = 0
     if ndim == 0:
         ndim = 1
@@ -322,7 +345,7 @@ def __expand_elem__(elem, ndim):
         raise ValueError("slicing expression exceeds the number of dimensions \
             of the variable")
 
-    # (2) if less elements are given then there are dimensions:
+    # (2) if less elements are given than there are dimensions:
     #     fill them with Ellipsis
 
     missing_dim = ndim - len(elem)
@@ -330,12 +353,12 @@ def __expand_elem__(elem, ndim):
     # Note: netCDF4 replaces Ellipsis with slice(None)
     if missing_dim > 0:
         # the first occurence of Ellipsis gets expanded
-        if Ellipsis in elem:
+        try:
             # find index of first occurence of Ellipsis
-            i = next(el[0] for el in enumerate(elem) if el[1] == Ellipsis)
+            i = next(el[0] for el in enumerate(elem) if np.all(el[1] == Ellipsis))
             # expand
             elem = elem[:i + 1] + (slice(None), ) * missing_dim + elem[i + 1:]
-        else:
+        except StopIteration: # no Ellipsis found
             # add 'Ellipsis' at end
             elem = elem + (slice(None), ) * missing_dim
 
@@ -395,12 +418,13 @@ def coordinate_selection(getitem_func):
 
     @wraps(getitem_func)
     def wrap_getitem(self, elem):
+
         # add Ellipsis if elem has less members than ndim
-        elem, _dict = __expand_elem__(elem, self.ndim)
+
+        elem, _dict = __expand_elem__(self, elem)
 
         # find slices that have to be selected and select
         sel_elem = __parse_el__(self, elem, _dict)
-
         return getitem_func(self, sel_elem)
 
     return wrap_getitem
