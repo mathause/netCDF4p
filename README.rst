@@ -45,5 +45,5 @@ Please use the Issue Tracker: github.com/mathause/netCDF4p/issues
 License
 -------
 
-The project is licensed under the BSD license.
+The project is licensed under the MIT license.
 
