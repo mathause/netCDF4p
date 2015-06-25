@@ -163,18 +163,22 @@ class Dataset(netCDF4.Dataset):
 
     def __init__(self, *arg, **kwargs):
 
+        # get ncp specific arguments
+        verbose = kwargs.pop('verbose', True)
+        select = kwargs.pop('select', None)
+        
         try:
             super(Dataset, self).__init__(*arg, **kwargs)
         except RuntimeError:
             raise RuntimeError("No such file or directory '%s'" % arg[0])
 
-        verbose = kwargs.get('verbose', True)
+        self.__dict__.update(self.__getattr__('__dict__'))
 
-        select = kwargs.pop('select', None)
         if select is None:
             self.__dict__['select'] = OrderedDict()
         else:
             self.__dict__['select'] = select
+
 
         # unfortunately we have to reassign "variables" in order to
         # use the new version (of 'Variable')
@@ -439,6 +443,8 @@ class Variable(netCDF4.Variable):
 
     def __init__(self, *arg, **kwargs):
         super(Variable, self).__init__(*arg, **kwargs)
+
+        self.__dict__.update(self.__getattr__('__dict__'))
         self.__dict__['_select_parent'] = kwargs.pop('select_parent')
 
     @coordinate_selection
