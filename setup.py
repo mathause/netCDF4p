@@ -12,5 +12,5 @@ setup(name='netCDF4p',
                         'functools',
                         'glob'
                         'numpy',
-                        'netCDF4'],
+                        'netCDF4>=1.1.8'],
       zip_safe=False)

@@ -9,10 +9,10 @@ from __future__ import print_function
 import netCDF4
 
 from netCDF4 import Group, CompoundType, chartostring, stringtoarr, \
-    default_encoding, _quantize, default_fillvals, MFTime, num2date, date2num, \
+    default_encoding, default_fillvals, MFTime, num2date, date2num, \
     date2index, __has_rename_grp__, stringtochar, chartostring, \
-    getlibversion, __hdf5libversion__, __netcdf4libversion__, __version__, _StartCountStride, is_native_little, \
-    _out_array_shape
+    getlibversion, __hdf5libversion__, __netcdf4libversion__, __version__, is_native_little
+
 
 from collections import OrderedDict
 from functools import wraps
@@ -445,6 +445,7 @@ class Variable(netCDF4.Variable):
         super(Variable, self).__init__(*arg, **kwargs)
 
         self.__dict__.update(self.__getattr__('__dict__'))
+        # need to manually update __dict__
         self.__dict__['_select_parent'] = kwargs.pop('select_parent')
 
     @coordinate_selection
@@ -454,7 +455,7 @@ class Variable(netCDF4.Variable):
 # ============================================================================
 
 
-class _Variable(netCDF4._Variable):
+class _Variable(netCDF4._netCDF4._Variable):
 
     """subclass netCDF4 to alter __getitem__"""
 
