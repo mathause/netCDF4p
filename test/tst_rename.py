@@ -4,7 +4,7 @@ import os
 import tempfile
 import numpy as NP
 import netCDF4p as netCDF4
-from netCDF4p import __has_rename_grp__
+from netCDF4 import __has_rename_grp__
 
 # test changing dimension, variable names
 # and deleting attributes.

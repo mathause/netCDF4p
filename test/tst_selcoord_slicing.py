@@ -6,10 +6,15 @@ import tempfile, unittest, os, random
 import numpy as np
 
 file_name = tempfile.mktemp(".nc")
-xdim=9; ydim=10; zdim=11
-#seed(9) # fix seed
+xdim=9; ydim=10; zdim=11;
+
 data = randint(0,10,size=(xdim,ydim,zdim)).astype('u1')
 datarev = data[:,::-1,:]
+
+x = np.arange(xdim, dtype='u1')
+y = np.arange(ydim, dtype='u1')
+z = np.arange(zdim, dtype='u1')
+
 
 class VariablesTestCase(unittest.TestCase):
 
@@ -21,7 +26,10 @@ class VariablesTestCase(unittest.TestCase):
         f.createDimension('y',ydim)
         f.createDimension('z',zdim)
         f.createDimension('zu',None)
+
+        f.createDimension('nE', None)
         v = f.createVariable('data','u1',('x','y','z'))
+        f.createVariable('no_coord_var','u1',('nE'))
         vu = f.createVariable('datau','u1',('xu','y','zu'))
         v1 = f.createVariable('data1d', 'u1', ('x',))
         # variable with no unlimited dim.
@@ -32,7 +40,24 @@ class VariablesTestCase(unittest.TestCase):
         #vu[0:xdim,::-1,0:zdim] = data
         vu[:,::-1,:] = data
 
+        # create variables for dimensions
+        v2 = f.createVariable('x','u1',('x'))
+        v3 = f.createVariable('y','u1',('y'))
+        v4 = f.createVariable('z','u1',('z'))
+        
+
+        # variable with an unlimited dimension.
+        # write slice in reverse order
+        #vu[0:xdim,::-1,0:zdim] = data
+        vu[:,::-1,:] = data
+
         v1[:] = data[:, 0, 0]
+        
+        v2[:] = x
+        v3[:] = y
+        v4[:] = z
+
+
         f.close()
 
     def tearDown(self):
@@ -72,11 +97,66 @@ class VariablesTestCase(unittest.TestCase):
 
         f.close()
 
+    def test_coord(self):
+        f  = Dataset(self.file, 'r', verbose=False)
+        v1 = f.variables['x']
+
+        assert_equal(v1[{1}], x[1])
+        assert_equal(v1[{4, 5}], x[4:6])
+
+
+
+    def test_preference_named_arg(self):
+
+        f  = Dataset(self.file, 'r', verbose=False)
+        v1 = f.variables['x']
+
+        assert_equal(v1[:, {'x' : (3, 4)}], x[3:5])
+        assert_equal(v1[:, {'x' : (3, 4)}, {'x' : (3, 5)}], x[3:6])
+
+
+
+    # ALL THE FOLLOWING TESTS SHOULD FAIL
+
+    def test_missing_coord(self):
+        f  = Dataset(self.file, 'r', verbose=False)
+        v1 = f.variables['no_coord_var']
+  
+        self.assertRaises(RuntimeError, v1.__getitem__, {1})
+
+
+    def test_wrong_argument_order(self):
+        f  = Dataset(self.file, 'r', verbose=False)
+        v1 = f.variables['data']
+
+        self.assertRaises(SyntaxError, v1.__getitem__, ({'x' : (1, 5)}, 1))
+
+
+
+
+    def test_set_with_wrong_no_elements(self):
+        f  = Dataset(self.file, 'r', verbose=False)
+        v1 = f.variables['data']
+
+        self.assertRaises(IndexError, v1.__getitem__, {1, 5, 2})
+        self.assertRaises(IndexError, v1.__getitem__, set())
+        self.assertRaises(IndexError, v1.__getitem__, {1, 5, 2, 3})
+
+
+
+
+
+
+
+
+
+
     def test_1d(self):
         f  = Dataset(self.file, 'r')
         v1 = f.variables['data1d']
+        
         d = data[:,0,0]
-        assert_equal(v1[:], d)
+        # assert_equal(v1[{3, 5}], d[3:5])
         assert_equal(v1[4:], d[4:])
         # test return of array scalar.
         assert_equal(v1[0].shape, ())
@@ -94,7 +174,6 @@ class VariablesTestCase(unittest.TestCase):
         v[...] = 10
         assert_array_equal(v[...], 10)
         assert_equal(v.shape, v[...].shape)
-        assert(type(v[...]) == np.ndarray)
         f.close()
 
     def test_issue259(self):
@@ -109,15 +188,6 @@ class VariablesTestCase(unittest.TestCase):
         a[:] = 1 # a should be same as b
         assert_array_equal(a[...], b[...])
         dset.close()
-
-    def test_issue371(self):
-        dataset = Dataset(self.file, 'w')
-        dataset.createDimension('dim', 5)
-        var = dataset.createVariable('bar', 'i8', ('dim', ))
-        data = [1, 2, 3, 4, 5]
-        var[..., :] = data
-        assert_array_equal(var[..., :], np.array(data))
-        dataset.close()
 
     def test_issue306(self):
         f = Dataset(self.file,'w')

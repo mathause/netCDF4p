@@ -8,11 +8,13 @@ from __future__ import print_function
 
 import netCDF4
 
-from netCDF4 import Group, CompoundType, chartostring, stringtoarr, \
-    default_encoding, default_fillvals, MFTime, num2date, date2num, \
-    date2index, __has_rename_grp__, stringtochar, chartostring, \
-    getlibversion, __hdf5libversion__, __netcdf4libversion__, __version__, is_native_little
+from netCDF4 import Group, CompoundType, stringtoarr, \
+default_encoding, default_fillvals, MFTime, num2date, date2num, \
+date2index, __has_rename_grp__, stringtochar, chartostring, \
+getlibversion, __hdf5libversion__, __netcdf4libversion__, __version__, \
+is_native_little
 
+import netCDF4.utils
 
 from collections import OrderedDict
 from functools import wraps

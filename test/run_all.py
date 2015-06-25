@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 import glob, os, sys, unittest
 import netCDF4p as netCDF4
 from netCDF4 import getlibversion,__hdf5libversion__,__netcdf4libversion__,__version__
@@ -21,6 +18,11 @@ else:
 if __netcdf4libversion__ < '4.2.1':
     test_files.remove('tst_diskless.py')
     sys.stdout.write('not running tst_diskless.py ...\n')
+
+# Don't run tests that require network connectivity
+if os.getenv('NO_NET'):
+    test_files.remove('tst_dap.py');
+    sys.stdout.write('not running tst_dap.py ...\n')
 
 # Build the test suite from the tests found in the test files.
 testsuite = unittest.TestSuite()

@@ -1,5 +1,6 @@
 import unittest, tempfile, os
 import netCDF4p as netCDF4
+
 file_name = tempfile.mktemp(".nc")
 
 class RefCountTestCase(unittest.TestCase):
