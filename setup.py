@@ -8,9 +8,5 @@ setup(name='netCDF4p',
       author_email='mathias.hauser@env.ethz.ch',
       license='MIT',
       packages=['netCDF4p'],
-      install_requires=['collections',
-                        'functools',
-                        'glob'
-                        'numpy',
-                        'netCDF4>=1.1.8'],
+      install_requires=['numpy', 'netCDF4==1.1.8'],
       zip_safe=False)
