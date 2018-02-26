@@ -3,6 +3,8 @@ netCDF4p
 
 Wrapper around python-netCDF4 that allows Coordinate subscripting, similar to NCL.
 
+What's new
+---------
 - version 0.1.0
 
 It has the full capability of python-netCDF4 *plus* allows coordinate subsetting. This is how you use it::
@@ -15,6 +17,14 @@ It has the full capability of python-netCDF4 *plus* allows coordinate subsetting
     ncf.variables['Temperature'][:, {0, 30}, {0, 20}]
     # coordinate selections can also be made passing a dict ('named argument')
     ncf.variables['Temperature'][:, {'lat' : (0, 30), 'lon' : (0, 20)}]
+
+What's new
+----------
+- version 0.1.1
+  - relax netCDF4 requirements
+
+- version 0.1.0
+  - check in for freeze
 
 Features
 --------
