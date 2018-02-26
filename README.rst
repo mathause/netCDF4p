@@ -3,6 +3,8 @@ netCDF4p
 
 Wrapper around python-netCDF4 that allows Coordinate subscripting, similar to NCL.
 
+- version 0.1.0
+
 It has the full capability of python-netCDF4 *plus* allows coordinate subsetting. This is how you use it::
 
     import netCDF4p as ncp
